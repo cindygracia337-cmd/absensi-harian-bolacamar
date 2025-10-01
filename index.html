@@ -6,6 +6,26 @@
     <title>Absen Harian Bolacamar</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+      import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+
+      // PASTE KODE KONFIGURASI LENGKAP ANDA DI SINI
+      const firebaseConfig = {
+        apiKey: "GANTI_DENGAN_API_KEY_ANDA",
+        authDomain: "absensi-website-fff4b.firebaseapp.com",
+        projectId: "absensi-website-fff4b",
+        storageBucket: "absensi-website-fff4b.appspot.com",
+        messagingSenderId: "935096349243",
+        appId: "1:935096349243:web:8c13b023e745cca6d994e6",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const database = getDatabase(app);
+
+      window.firebaseApp = app;
+      window.firebaseDatabase = database;
+    </script>
     <style>
         :root {
             --primary-color: #001f60;
@@ -29,7 +49,7 @@
             margin: 0;
             position: relative;
             overflow: hidden;
-            background-image: url('camarbg'); /* URL gambar yang sudah Anda unggah */
+            background-image: url('https://vpnoke.com/camarbg');
             background-position: center center;
             background-repeat: no-repeat;
             background-size: cover;
@@ -226,7 +246,6 @@
         const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
         const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
         const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-
         const loginPage = document.getElementById('loginPage');
         const absenPage = document.getElementById('absenPage');
         const masterPage = document.getElementById('masterPage');
