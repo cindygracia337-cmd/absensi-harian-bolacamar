@@ -6,26 +6,7 @@
     <title>Absen Harian Bolacamar</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-      import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
-
-      // PASTE KODE KONFIGURASI LENGKAP ANDA DI SINI
-      const firebaseConfig = {
-        apiKey: "GANTI_DENGAN_API_KEY_ANDA",
-        authDomain: "absensi-website-fff4b.firebaseapp.com",
-        projectId: "absensi-website-fff4b",
-        storageBucket: "absensi-website-fff4b.appspot.com",
-        messagingSenderId: "935096349243",
-        appId: "1:935096349243:web:8c13b023e745cca6d994e6",
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const database = getDatabase(app);
-
-      window.firebaseApp = app;
-      window.firebaseDatabase = database;
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --primary-color: #001f60;
@@ -162,7 +143,7 @@
         #absenPage, #masterPage, #memberAbsenPage {
             display: none;
         }
-        #displayName, #today, #absenCount {
+        #displayName, #today {
             color: var(--primary-color);
             font-weight: 700;
         }
@@ -246,6 +227,12 @@
         const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
         const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
         const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+
+        // GANTI DENGAN URL DAN KEY SUPABASE ANDA
+        const SUPABASE_URL = 'https://mfylcqajogostwhqruol.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1meWxjcWFqb2dvc3R3aHFydW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyNjM0ODMsImV4cCI6MjA3NDgzOTQ4M30.kimNJLG1-Mj28bJ9nxPUwk0gWMAF6ir70t4drSWt6uA';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
         const loginPage = document.getElementById('loginPage');
         const absenPage = document.getElementById('absenPage');
         const masterPage = document.getElementById('masterPage');
@@ -267,24 +254,21 @@
         const memberAbsenName = document.getElementById('memberAbsenName');
         
         let absenDays = [];
-        let validUsers = [];
+        let validUsers = ['admin'];
         let loggedInUser = '';
 
-        const database = window.firebaseDatabase;
-        
-        function saveToDatabase() {
-            set(ref(database, `users/${loggedInUser}/absenDays`), absenDays);
-            set(ref(database, 'validUsers'), validUsers);
+        function loadValidUsers() {
+            supabase
+                .from('attendance')
+                .select('username')
+                .then(response => {
+                    const users = response.data.map(item => item.username);
+                    validUsers = ['admin', ...users];
+                    populateMemberList();
+                })
+                .catch(error => console.error('Error fetching valid users:', error));
         }
 
-        function loadFromDatabase() {
-            const usersRef = ref(database, 'validUsers');
-            onValue(usersRef, (snapshot) => {
-                validUsers = snapshot.val() || ['admin'];
-                populateMemberList();
-            });
-        }
-        
         function populateMemberList() {
             memberList.innerHTML = '';
             validUsers.filter(user => user !== 'admin').forEach(user => {
@@ -347,7 +331,7 @@
             loggedInUser = '';
         }
 
-        loadFromDatabase();
+        loadValidUsers();
 
         loginPage.style.display = 'block';
         absenPage.style.display = 'none';
@@ -357,7 +341,7 @@
         loginBtn.addEventListener('click', () => {
             const username = usernameInput.value.trim().toLowerCase();
             
-            if (!validUsers.includes(username) && username !== 'admin') {
+            if (!validUsers.includes(username)) {
                 alert('Nama pengguna tidak valid. Silakan coba lagi.');
                 return;
             }
@@ -375,25 +359,34 @@
                 monthNameDisplay.innerText = monthNames[currentMonth];
                 document.getElementById('today').innerText = today;
                 
-                const absenRef = ref(database, `users/${loggedInUser}/absenDays`);
-                onValue(absenRef, (snapshot) => {
-                  absenDays = snapshot.val() || [];
-                  absenCountDisplay.innerText = absenDays.length;
-                  populateCalendar(absenDays, calendarGrid);
-                  checkAbsenStatus();
-                });
+                supabase
+                    .from('attendance')
+                    .select('absen_days')
+                    .eq('username', loggedInUser)
+                    .single()
+                    .then(response => {
+                        absenDays = response.data ? response.data.absen_days : [];
+                        absenCountDisplay.innerText = absenDays.length;
+                        populateCalendar(absenDays, calendarGrid);
+                        checkAbsenStatus();
+                    })
+                    .catch(error => console.error('Error fetching user data:', error));
             }
         });
 
         addMemberBtn.addEventListener('click', () => {
             const newMember = newMemberInput.value.trim().toLowerCase();
-            if (newMember && !validUsers.includes(newMember) && newMember !== 'admin') {
-                validUsers.push(newMember);
-                database.ref('validUsers').set(validUsers);
-                populateMemberList();
-                newMemberInput.value = '';
-                alert(`Member "${newMember}" berhasil ditambahkan.`);
-            } else if (validUsers.includes(newMember) || newMember === 'admin') {
+            if (newMember && !validUsers.includes(newMember)) {
+                supabase
+                    .from('attendance')
+                    .upsert({ username: newMember, absen_days: [] })
+                    .then(() => {
+                        loadValidUsers();
+                        newMemberInput.value = '';
+                        alert(`Member "${newMember}" berhasil ditambahkan.`);
+                    })
+                    .catch(error => console.error('Error adding new member:', error));
+            } else if (validUsers.includes(newMember)) {
                 alert('Nama member sudah ada!');
             }
         });
@@ -401,10 +394,16 @@
         absenBtn.addEventListener('click', () => {
             if (!absenDays.includes(today)) {
                 absenDays.push(today);
-                database.ref(`users/${loggedInUser}/absenDays`).set(absenDays);
-                absenCountDisplay.innerText = absenDays.length;
-                checkAbsenStatus();
-                populateCalendar(absenDays, calendarGrid);
+                supabase
+                    .from('attendance')
+                    .update({ absen_days: absenDays })
+                    .eq('username', loggedInUser)
+                    .then(() => {
+                        absenCountDisplay.innerText = absenDays.length;
+                        checkAbsenStatus();
+                        populateCalendar(absenDays, calendarGrid);
+                    })
+                    .catch(error => console.error('Error saving attendance:', error));
             }
         });
         
@@ -415,14 +414,19 @@
             if (event.target.classList.contains('view-btn')) {
                 const targetUser = event.target.dataset.user;
                 
-                database.ref(`users/${targetUser}/absenDays`).on('value', (snapshot) => {
-                  const memberAbsen = snapshot.val() || [];
-                  memberAbsenName.innerText = targetUser;
-                  populateCalendar(memberAbsen, memberAbsenGrid);
-                });
-                
-                masterPage.style.display = 'none';
-                memberAbsenPage.style.display = 'block';
+                supabase
+                    .from('attendance')
+                    .select('absen_days')
+                    .eq('username', targetUser)
+                    .single()
+                    .then(response => {
+                        const memberAbsen = response.data ? response.data.absen_days : [];
+                        memberAbsenName.innerText = targetUser;
+                        populateCalendar(memberAbsen, memberAbsenGrid);
+                        masterPage.style.display = 'none';
+                        memberAbsenPage.style.display = 'block';
+                    })
+                    .catch(error => console.error('Error fetching member attendance:', error));
             }
         });
 
