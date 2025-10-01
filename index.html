@@ -6,27 +6,7 @@
     <title>Absen Harian Bolacamar</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-      import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
-
-      // GANTI DENGAN KODE KONFIGURASI ANDA DI SINI
-      const firebaseConfig = {
-        apiKey: "GANTI_DENGAN_API_KEY_ANDA",
-        authDomain: "absensi-website-fff4b.firebaseapp.com",
-        projectId: "absensi-website-fff4b",
-        storageBucket: "absensi-website-fff4b.appspot.com",
-        messagingSenderId: "935096349243",
-        appId: "1:935096349243:web:8c13b023e745cca6d994e6",
-        measurementId: "G-KJ42YMW5RS"
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const database = getDatabase(app);
-
-      window.firebaseApp = app;
-      window.firebaseDatabase = database;
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --primary-color: #001f60;
@@ -50,7 +30,7 @@
             margin: 0;
             position: relative;
             overflow: hidden;
-            background-image: url('https://vpnoke.com/camarbg');
+            background-image: url('https://vpnoke.com/camarbg'); /* URL gambar yang sudah Anda unggah */
             background-position: center center;
             background-repeat: no-repeat;
             background-size: cover;
@@ -163,17 +143,17 @@
         #absenPage, #masterPage, #memberAbsenPage {
             display: none;
         }
-        #displayName, #today, #absenCount {
+        #displayName, #today {
             color: var(--primary-color);
             font-weight: 700;
         }
-        #memberList, #adminList {
+        #memberList {
             text-align: left;
             margin-top: 20px;
             list-style-type: none;
             padding: 0;
         }
-        #memberList li, #adminList li {
+        #memberList li {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -182,15 +162,12 @@
             margin-bottom: 5px;
             border-radius: 4px;
         }
-        .view-btn, .edit-btn, .delete-btn {
+        .view-btn {
             background-color: var(--primary-color);
             color: var(--secondary-color);
             width: auto;
             padding: 5px 10px;
-            margin-left: 5px;
         }
-        .edit-btn { background-color: #ffc107; color: var(--text-color-dark); }
-        .delete-btn { background-color: #dc3545; }
         #memberAbsenGrid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -202,7 +179,7 @@
 <body>
     <div class="container" id="loginPage">
         <h1><i class="fas fa-calendar-alt"></i> Absen Harian Bolacamar</h1>
-        <p>Masukkan nama Anda untuk melanjutkan.</p>
+        <p>Masukkan User ID Sesuai terdaftar di BOL.</p>
         <div class="input-group">
             <input type="text" id="usernameInput" placeholder="Nama Anda">
         </div>
@@ -225,22 +202,12 @@
     <div class="container" id="masterPage">
         <h1><i class="fas fa-cogs"></i> Master Menu</h1>
         <p>Selamat Datang, Admin!</p>
-        
         <div class="input-group">
             <input type="text" id="newMemberInput" placeholder="Nama Member Baru">
-            <button id="addMemberBtn">Tambah Member</button>
+            <button id="addMemberBtn">Tambah</button>
         </div>
-        <p><strong>Daftar Member:</strong></p>
+        <p><strong>Daftar Member Saat Ini:</strong></p>
         <ul id="memberList"></ul>
-        
-        <hr> <p><strong>Tambah Admin Baru:</strong></p>
-        <div class="input-group">
-            <input type="text" id="newAdminInput" placeholder="Nama Admin Baru">
-            <button id="addAdminBtn">Tambah Admin</button>
-        </div>
-        <p><strong>Daftar Admin:</strong></p>
-        <ul id="adminList"></ul>
-        
         <button id="logoutBtn">Keluar</button>
     </div>
 
@@ -266,10 +233,8 @@
         const memberAbsenPage = document.getElementById('memberAbsenPage');
         const usernameInput = document.getElementById('usernameInput');
         const newMemberInput = document.getElementById('newMemberInput');
-        const newAdminInput = document.getElementById('newAdminInput');
         const loginBtn = document.getElementById('loginBtn');
         const addMemberBtn = document.getElementById('addMemberBtn');
-        const addAdminBtn = document.getElementById('addAdminBtn');
         const absenBtn = document.getElementById('absenBtn');
         const logoutBtnMaster = document.getElementById('logoutBtn');
         const logoutBtnAbsenPage = document.getElementById('absenPageLogoutBtn');
@@ -279,13 +244,11 @@
         const monthNameDisplay = document.getElementById('monthName');
         const calendarGrid = document.getElementById('calendarGrid');
         const memberList = document.getElementById('memberList');
-        const adminList = document.getElementById('adminList');
         const memberAbsenGrid = document.getElementById('memberAbsenGrid');
         const memberAbsenName = document.getElementById('memberAbsenName');
         
         let absenDays = [];
         let validUsers = [];
-        let adminUsers = [];
         let loggedInUser = '';
 
         const database = window.firebaseDatabase;
@@ -293,40 +256,25 @@
         function saveToDatabase() {
             set(ref(database, `users/${loggedInUser}/absenDays`), absenDays);
             set(ref(database, 'validUsers'), validUsers);
-            set(ref(database, 'adminUsers'), adminUsers);
         }
 
         function loadFromDatabase() {
             const usersRef = ref(database, 'validUsers');
             onValue(usersRef, (snapshot) => {
-                validUsers = snapshot.val() || [];
+                validUsers = snapshot.val() || ['admin'];
                 populateMemberList();
-            });
-            const adminsRef = ref(database, 'adminUsers');
-            onValue(adminsRef, (snapshot) => {
-                adminUsers = snapshot.val() || ['admin'];
-                populateAdminList();
             });
         }
         
         function populateMemberList() {
             memberList.innerHTML = '';
-            validUsers.filter(user => !adminUsers.includes(user)).forEach(user => {
+            validUsers.filter(user => user !== 'admin').forEach(user => {
                 const listItem = document.createElement('li');
                 listItem.innerHTML = `
                     <span>${user}</span>
                     <button class="view-btn" data-user="${user}">Lihat Absensi</button>
                 `;
                 memberList.appendChild(listItem);
-            });
-        }
-        
-        function populateAdminList() {
-            adminList.innerHTML = '';
-            adminUsers.forEach(user => {
-                const listItem = document.createElement('li');
-                listItem.innerHTML = `<span>${user}</span>`;
-                adminList.appendChild(listItem);
             });
         }
 
@@ -377,10 +325,9 @@
             loginPage.style.display = 'block';
             usernameInput.value = '';
             memberList.innerHTML = '';
-            adminList.innerHTML = '';
             loggedInUser = '';
         }
-
+        
         loadFromDatabase();
 
         loginPage.style.display = 'block';
@@ -391,18 +338,17 @@
         loginBtn.addEventListener('click', () => {
             const username = usernameInput.value.trim().toLowerCase();
             
-            if (!validUsers.includes(username) && !adminUsers.includes(username)) {
+            if (!validUsers.includes(username) && username !== 'admin') {
                 alert('Nama pengguna tidak valid. Silakan coba lagi.');
                 return;
             }
 
             loggedInUser = username;
             
-            if (adminUsers.includes(username)) {
+            if (username === 'admin') {
                 loginPage.style.display = 'none';
                 masterPage.style.display = 'block';
                 populateMemberList();
-                populateAdminList();
             } else {
                 loginPage.style.display = 'none';
                 absenPage.style.display = 'block';
@@ -422,34 +368,21 @@
 
         addMemberBtn.addEventListener('click', () => {
             const newMember = newMemberInput.value.trim().toLowerCase();
-            if (newMember && !validUsers.includes(newMember) && !adminUsers.includes(newMember)) {
+            if (newMember && !validUsers.includes(newMember) && newMember !== 'admin') {
                 validUsers.push(newMember);
-                saveToDatabase();
+                database.ref('validUsers').set(validUsers);
                 populateMemberList();
                 newMemberInput.value = '';
                 alert(`Member "${newMember}" berhasil ditambahkan.`);
-            } else if (validUsers.includes(newMember) || adminUsers.includes(newMember)) {
+            } else if (validUsers.includes(newMember) || newMember === 'admin') {
                 alert('Nama member sudah ada!');
-            }
-        });
-        
-        addAdminBtn.addEventListener('click', () => {
-            const newAdmin = newAdminInput.value.trim().toLowerCase();
-            if (newAdmin && !adminUsers.includes(newAdmin) && !validUsers.includes(newAdmin)) {
-                adminUsers.push(newAdmin);
-                saveToDatabase();
-                populateAdminList();
-                newAdminInput.value = '';
-                alert(`Admin "${newAdmin}" berhasil ditambahkan.`);
-            } else if (adminUsers.includes(newAdmin) || validUsers.includes(newAdmin)) {
-                alert('Nama admin sudah ada!');
             }
         });
 
         absenBtn.addEventListener('click', () => {
             if (!absenDays.includes(today)) {
                 absenDays.push(today);
-                saveToDatabase();
+                database.ref(`users/${loggedInUser}/absenDays`).set(absenDays);
                 absenCountDisplay.innerText = absenDays.length;
                 checkAbsenStatus();
                 populateCalendar(absenDays, calendarGrid);
